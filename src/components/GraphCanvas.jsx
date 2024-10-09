@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
+import { drawEdge, drawVertex } from '../services/graphCanvas/utils';
 
-export default function GraphCanvas({width=500, height=400}) {
-    const editingStates = ['add_vertex', 'add_edge', 'move_vertex', 'delete'];
+export default function GraphCanvas({width=500, height=400, graphData={}, currentState='add_vertex'}) {
+    // const editingStates = ['add_vertex', 'add_edge', 'move_vertex', 'delete'];
+    // const [currentState, setCurrentState] = useState('add_vertex');
+
     const canvasRef = useRef(null);
-    const [graph, setGraph] = useState({});
-    const [currentState, setCurrentState] = useState('add_vertex');
+    const [graph, setGraph] = useState(graphData);
     const [selectedVertex, setSelectedVertex] = useState(null);
     const [edgeStart, setEdgeStart] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -42,16 +44,16 @@ export default function GraphCanvas({width=500, height=400}) {
             Object.values(graph).forEach(vertex => {
                 const color = vertex.labels[0] || 'black';
                 if (isMouseOverVertex(mousePos, vertex)) {
-                    drawVertex(ctx, vertex, color, 'red');
+                    drawVertexOnCanvas(ctx, vertex, color, 'red');
                 } else {
                     const outline = vertex === graph[edgeStart] ? 'lightblue' : 'black';
-                    drawVertex(ctx, vertex, color, outline);
+                    drawVertexOnCanvas(ctx, vertex, color, outline);
                 }
             });
             if (graph[edgeStart]) {
                 Object.values(graph).forEach(vertex => {
                     if (isMouseOverVertex(mousePos, vertex) && vertex === graph[edgeStart]) {
-                        drawVertex(ctx, vertex, 'yellow');
+                        drawVertexOnCanvas(ctx, vertex, 'yellow');
                     }
                 });
             }
@@ -153,33 +155,23 @@ export default function GraphCanvas({width=500, height=400}) {
     };
 
     // Canvas Functions
-    const drawVertex = (ctx, vertex, color = 'black', outline = 'rgba(0,0,0,1)') => {
+    const drawVertexOnCanvas = (ctx, vertex, color=null, outline=undefined) => {
         if (!vertex) {
             console.error(`Vertex with ID ${vertex} not found.`);
             return;
         }
-        ctx.beginPath();
-        ctx.arc(vertex.position[0], vertex.position[1], radius, 0, 2 * Math.PI, false);
-        ctx.fillStyle = color;
-        ctx.strokeStyle = outline;
-        ctx.fill();
-        ctx.stroke();
-        ctx.closePath();
+        const [x, y] = vertex.position;
+        drawVertex(ctx, vertex, x, y, radius, color, outline)
     };
 
-    const drawEdge = (vertexId1, vertexId2, ctx) => {
-        const vertex1 = graph[vertexId1];
-        const vertex2 = graph[vertexId2];
+    const drawEdgeOnCanvas = (vertexId1, vertexId2, ctx) => {
+        const [vertex1, vertex2] = [graph[vertexId1], graph[vertexId2]];
         if (!vertex1 || !vertex2) {
             console.error(`One or both vertices not found: ${vertexId1}, ${vertexId2}`);
             return;
         }
-        ctx.beginPath();
-        ctx.moveTo(vertex1.position[0], vertex1.position[1]);
-        ctx.lineTo(vertex2.position[0], vertex2.position[1]);
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.closePath();
+        const [[x1, y1], [x2, y2]] = [vertex1.position, vertex2.position] 
+        drawEdge(ctx, x1, y1, x2, y2)
     };
 
     const redrawGraph = (ctx) => {
@@ -189,13 +181,13 @@ export default function GraphCanvas({width=500, height=400}) {
             const vertex1 = graph[vertexId1];
             vertex1.neighbors.forEach(vertexId2 => {
                 if (vertexId1 < vertexId2) { // To avoid drawing the same edge twice
-                    drawEdge(vertexId1, vertexId2, ctx);
+                    drawEdgeOnCanvas(vertexId1, vertexId2, ctx);
                 }
             });
         });
         // Draw vertices
         Object.values(graph).forEach(vertex => {
-            drawVertex(ctx, vertex, vertex.labels[0] || 'black', 'rgba(0,0,0,1)');
+            drawVertexOnCanvas(ctx, vertex, vertex.labels[0] || 'black', 'rgba(0,0,0,1)');
         });
     };
 
