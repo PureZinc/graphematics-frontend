@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { drawEdge, drawVertex } from '../services/graphCanvas/utils';
 
-export default function GraphCanvas({width=500, height=400, graphData={}, currentState='add_vertex'}) {
-    // const editingStates = ['add_vertex', 'add_edge', 'move_vertex', 'delete'];
-    // const [currentState, setCurrentState] = useState('add_vertex');
-
+export default function GraphCanvas({width=500, height=400, graphState, currentState='add_vertex'}) {
     const canvasRef = useRef(null);
-    const [graph, setGraph] = useState(graphData);
+    const [graph, setGraph] = graphState;
+    
     const [selectedVertex, setSelectedVertex] = useState(null);
     const [edgeStart, setEdgeStart] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -14,12 +12,12 @@ export default function GraphCanvas({width=500, height=400, graphData={}, curren
 
     useEffect(() => {
         const canvas = canvasRef.current;
+        const mainCtx = canvas.getContext('2d');
         canvas.width = width;
         canvas.height = height;
 
-        const ctx = canvas.getContext('2d');
-        const handleMouseMove = (event) => onMouseMove(event, ctx);
-        const handleMouseDown = (event) => onMouseDown(event, ctx);
+        const handleMouseMove = (event) => onMouseMove(event, mainCtx);
+        const handleMouseDown = (event) => onMouseDown(event, mainCtx);
         const handleMouseUp = () => onMouseUp();
 
         canvas.addEventListener('mousemove', handleMouseMove);
@@ -33,18 +31,23 @@ export default function GraphCanvas({width=500, height=400, graphData={}, curren
         };
     }, [graph, currentState, selectedVertex, edgeStart, isDragging]);
 
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const mainCtx = canvas.getContext('2d');
+        redrawGraph(mainCtx);  // Redraw whenever graph or related state changes
+    }, [graph, selectedVertex, edgeStart, isDragging]);
+
     const onMouseMove = (event, ctx) => {
         const mousePos = getMousePos(event);
         if (isDragging && selectedVertex) {
-            selectedVertex.position[0] = mousePos.x;
-            selectedVertex.position[1] = mousePos.y;
+            selectedVertex.position = [mousePos.x, mousePos.y];
             redrawGraph(ctx);
         } else {
             redrawGraph(ctx);
             Object.values(graph).forEach(vertex => {
                 const color = vertex.labels[0] || 'black';
                 if (isMouseOverVertex(mousePos, vertex)) {
-                    drawVertexOnCanvas(ctx, vertex, color, 'red');
+                    drawVertexOnCanvas(ctx, vertex, 'red');
                 } else {
                     const outline = vertex === graph[edgeStart] ? 'lightblue' : 'black';
                     drawVertexOnCanvas(ctx, vertex, color, outline);
@@ -122,12 +125,20 @@ export default function GraphCanvas({width=500, height=400, graphData={}, curren
             } else {
                 const startVertex = graph[edgeStart];
                 if (!startVertex.neighbors.includes(vertexId) && edgeStart !== vertexId) {
-                    startVertex.neighbors.push(vertexId);
-                    vertex.neighbors.push(edgeStart); // Ensure bidirectional edge
+                    setGraph(prevGraph => ({
+                        ...prevGraph,
+                        [edgeStart]: {
+                            ...startVertex,
+                            neighbors: [...startVertex.neighbors, vertexId],
+                        },
+                        [vertexId]: {
+                            ...vertex,
+                            neighbors: [...vertex.neighbors, edgeStart],
+                        }
+                    }));
                 }
                 setEdgeStart(null);
                 selectVertex(null);
-                redrawGraph(canvasRef.current.getContext('2d'));
             }
         }
     };
@@ -135,60 +146,47 @@ export default function GraphCanvas({width=500, height=400, graphData={}, curren
     const deleteVertex = (x, y) => {
         const vertexId = findVertexIdByPosition(x, y);
         if (vertexId) {
-            // Remove the vertex from neighbors list of other vertices
             setGraph(prevGraph => {
                 const newGraph = { ...prevGraph };
-                Object.keys(newGraph).forEach(id => {
-                    newGraph[id].neighbors = newGraph[id].neighbors.filter(neighborId => neighborId !== vertexId);
+                Object.values(newGraph).forEach(vertex => {
+                    vertex.neighbors = vertex.neighbors.filter(neighborId => neighborId !== vertexId);
                 });
                 delete newGraph[vertexId];
-                redrawGraph(canvasRef.current.getContext('2d'));
                 return newGraph;
             });
         } else {
             const confirmDelete = window.confirm("Delete the entire graph?");
             if (confirmDelete) {
                 setGraph({});
-                redrawGraph(canvasRef.current.getContext('2d'));
             }
         }
     };
 
     // Canvas Functions
     const drawVertexOnCanvas = (ctx, vertex, color=null, outline=undefined) => {
-        if (!vertex) {
-            console.error(`Vertex with ID ${vertex} not found.`);
-            return;
-        }
         const [x, y] = vertex.position;
-        drawVertex(ctx, vertex, x, y, radius, color, outline)
+        drawVertex(ctx, vertex, x, y, radius, color, outline);
     };
 
     const drawEdgeOnCanvas = (vertexId1, vertexId2, ctx) => {
         const [vertex1, vertex2] = [graph[vertexId1], graph[vertexId2]];
-        if (!vertex1 || !vertex2) {
-            console.error(`One or both vertices not found: ${vertexId1}, ${vertexId2}`);
-            return;
-        }
         const [[x1, y1], [x2, y2]] = [vertex1.position, vertex2.position] 
-        drawEdge(ctx, x1, y1, x2, y2)
+        drawEdge(ctx, x1, y1, x2, y2);
     };
 
     const redrawGraph = (ctx) => {
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        // Draw edges
-        Object.keys(graph).forEach(vertexId1 => {
-            const vertex1 = graph[vertexId1];
-            vertex1.neighbors.forEach(vertexId2 => {
-                if (vertexId1 < vertexId2) { // To avoid drawing the same edge twice
-                    drawEdgeOnCanvas(vertexId1, vertexId2, ctx);
+
+        Object.entries(graph).forEach(([vertexId, vertex]) => {
+            let includedVertices = [vertexId];
+            drawVertexOnCanvas(ctx, vertex, 'black', 'black');
+            vertex.neighbors.forEach(neighborId => {
+                if (!includedVertices.includes(neighborId)) { // To avoid rewriting the same edge
+                    drawEdgeOnCanvas(vertexId, neighborId, ctx);
                 }
-            });
-        });
-        // Draw vertices
-        Object.values(graph).forEach(vertex => {
-            drawVertexOnCanvas(ctx, vertex, vertex.labels[0] || 'black', 'rgba(0,0,0,1)');
-        });
+                includedVertices = [...includedVertices, neighborId];
+            })
+        })
     };
 
     // Utils
@@ -211,6 +209,6 @@ export default function GraphCanvas({width=500, height=400, graphData={}, curren
     };
 
   return (
-    <canvas ref={canvasRef} />
+    <canvas ref={canvasRef} className="border-2 border-black rounded-lg" />
   )
 }

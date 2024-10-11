@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-
-// const BASE_URL = "http://127.0.0.1:8000/api";
-const BASE_URL = "https://graphematics-26e0b7201e5f.herokuapp.com/api";
+import { BASE_URL } from '../config';
 
 const useFetch = (url, method = 'GET', body = null, token = null) => {
     const [data, setData] = useState(null);
@@ -9,6 +7,11 @@ const useFetch = (url, method = 'GET', body = null, token = null) => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        if (!url) {
+            setLoading(false);
+            return;
+        }
+
         const fetchData = async () => {
             setLoading(true);
             setError(null);
