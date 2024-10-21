@@ -1,7 +1,8 @@
 import GraphCanvas from "../components/GraphCanvas"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import useFetch from "../services/useFetch";
 import { BASE_URL } from "../config";
+import { useParams } from "react-router-dom";
 
 
 const GraphPerformModal = ({performType, openState, graphState}) => {
@@ -100,10 +101,21 @@ const GraphPerformModal = ({performType, openState, graphState}) => {
 }
 
 export default function BuildGraph() {
-    const editingStates = ['add_vertex', 'add_edge', 'move_vertex', 'delete'];
-    const [currentState, setCurrentState] = useState('add_vertex');
+    const { id: graphId } = useParams();
+    const search = graphId ? graphId : 0;
 
     const [graph, setGraph] = useState({});
+    const { data: gData, error: fetchError } = useFetch(`/graphs/${search}`);
+    useEffect(() => {
+        if (fetchError) {
+            setGraph({});
+        } else if (gData) {
+            setGraph(gData.data);
+        }
+    }, [gData, fetchError]);
+
+    const editingStates = ['add_vertex', 'add_edge', 'move_vertex', 'delete'];
+    const [currentState, setCurrentState] = useState('add_vertex');
 
     const [openClassModal, setOpenClassModal] = useState(false);
     const [openFunctionModal, setOpenFunctionModal] = useState(false);

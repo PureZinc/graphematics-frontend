@@ -36,6 +36,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const register = async (registerData) => {
+    const response = await fetch(`${BASE_URL}/auth/register/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(registerData),
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      login(registerData);
+    } else {
+      throw new Error(data.detail);
+    }
+  };
+
   const logout = () => {
     setToken(null);
     localStorage.removeItem("token");
@@ -80,7 +95,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, token  }}>
+    <AuthContext.Provider value={{ user, login, logout, register, token }}>
       {children}
     </AuthContext.Provider>
   );

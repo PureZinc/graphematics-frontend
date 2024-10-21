@@ -6,14 +6,16 @@ const LoginPage = () => {
   const [error, setError] = useState("");
   const { login } = useContext(AuthContext);
 
-  const errorDecoration = error === "Login Successful!" ? "text-green-500" : "text-red-500";
+  const success = "Login Successful!";
+
+  const errorDecoration = error === success ? "text-green-500" : "text-red-500";
 
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       await login(formData); // Call the login function from AuthContext
-      setError("Login Successful!");
+      setError(success);
     } catch (err) {
       setError(err.message); // Set error if login fails
     }

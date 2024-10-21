@@ -1,10 +1,12 @@
 import useFetch from "../services/useFetch";
 import { useParams } from 'react-router-dom';
 import { GraphDisplay } from "../components/Graphs";
+import { Link } from "react-router-dom";
 
 export default function GraphDetail() {
     const { id } = useParams();
     const {data: graph, loading, error} = useFetch(`/graphs/${id}`);
+    // const {data: user, loading: loadUser} = useFetch(`/auth/users/${loading ? '' : graph.creator}`);
 
     if (loading) return <div>Loading...</div>;
 
@@ -33,7 +35,7 @@ export default function GraphDetail() {
                         <GraphDisplay graphData={graph.data} />
                     </div>
                     <div className="card-footer p-4">
-                        <button className="btn">Edit Graph</button>
+                        <Link to={`/create/${graph.id}`}><button className="btn">Edit Graph</button></Link>
                     </div>
                 </div>
             </div>
@@ -46,6 +48,7 @@ export default function GraphDetail() {
                     </div>
                     <div className="card-body p-4">
                         <ul className="list-group list-none space-y-2">
+                            {/* <li className="list-group-item"><strong>Creator:</strong> { loadUser ? 'Loading...' : user.username }</li> */}
                             <li className="list-group-item"><strong>Vertices:</strong> { numVertices }</li>
                             <li className="list-group-item"><strong>Edges:</strong> { numEdges }</li>
                         </ul>
